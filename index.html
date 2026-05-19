@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Line Mileage Prototype</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app-shell">
+      <section class="toolbar">
+        <div>
+          <h1>Line Mileage Prototype</h1>
+          <p>GPS projection, mileage, and Up/Down side test build.</p>
+        </div>
+        <div class="actions">
+          <button id="startGpsBtn" type="button">Start GPS</button>
+          <button id="stopGpsBtn" type="button" disabled>Stop</button>
+        </div>
+      </section>
+
+      <section class="status-grid">
+        <article>
+          <span>Latitude</span>
+          <strong id="latValue">--</strong>
+        </article>
+        <article>
+          <span>Longitude</span>
+          <strong id="lonValue">--</strong>
+        </article>
+        <article>
+          <span>GPS Accuracy</span>
+          <strong id="accuracyValue">--</strong>
+        </article>
+        <article>
+          <span>Updated</span>
+          <strong id="timeValue">--</strong>
+        </article>
+      </section>
+
+      <section class="workspace">
+        <div class="map-panel">
+          <canvas id="lineCanvas" width="1200" height="760"></canvas>
+        </div>
+
+        <aside class="result-panel">
+          <h2>Current Result</h2>
+          <dl>
+            <div>
+              <dt>Mileage</dt>
+              <dd id="mileageValue">--</dd>
+            </div>
+            <div>
+              <dt>Nearest Track</dt>
+              <dd id="trackValue">--</dd>
+            </div>
+            <div>
+              <dt>Line Side</dt>
+              <dd id="sideValue">--</dd>
+            </div>
+            <div>
+              <dt>Lateral Offset</dt>
+              <dd id="offsetValue">--</dd>
+            </div>
+            <div>
+              <dt>Nearest Projection</dt>
+              <dd id="projectionValue">--</dd>
+            </div>
+            <div>
+              <dt>Reference Segment</dt>
+              <dd id="segmentValue">--</dd>
+            </div>
+          </dl>
+
+          <form id="manualForm" class="manual-form">
+            <h2>Manual Test</h2>
+            <label>
+              Latitude
+              <input id="manualLat" name="lat" inputmode="decimal" value="42.08386554" />
+            </label>
+            <label>
+              Longitude
+              <input id="manualLon" name="lon" inputmode="decimal" value="123.53301922" />
+            </label>
+            <button type="submit">Calculate</button>
+          </form>
+
+          <section class="target-finder">
+            <h2>Target Finder</h2>
+            <label>
+              Target Name
+              <input id="targetName" value="Gate" />
+            </label>
+            <label>
+              Target Mileage
+              <input id="targetMileage" inputmode="decimal" value="727.300" />
+            </label>
+            <label>
+              Target Side
+              <select id="targetSide">
+                <option value="up">Up side</option>
+                <option value="down">Down side</option>
+                <option value="any">Any side</option>
+              </select>
+            </label>
+            <button id="setTargetBtn" type="button">Set Target</button>
+
+            <div class="target-readout">
+              <div>
+                <span>Target</span>
+                <strong id="targetSummary">--</strong>
+              </div>
+              <div>
+                <span>Along-line Difference</span>
+                <strong id="targetDelta">--</strong>
+              </div>
+              <div>
+                <span>Move Direction</span>
+                <strong id="targetMove">--</strong>
+              </div>
+              <div>
+                <span>Side Hint</span>
+                <strong id="targetSideHint">--</strong>
+              </div>
+            </div>
+          </section>
+
+          <section class="collector">
+            <h2>Field Collection</h2>
+            <label>
+              Track
+              <select id="sampleTrack">
+                <option value="auto">Auto</option>
+                <option value="up">Up</option>
+                <option value="down">Down</option>
+                <option value="unknown">Unknown</option>
+              </select>
+            </label>
+            <label>
+              Point Type
+              <select id="pointType">
+                <option value="control">Control point</option>
+                <option value="check">Check point</option>
+                <option value="feature">Feature point</option>
+                <option value="note">Note</option>
+              </select>
+            </label>
+            <label>
+              Known Mileage
+              <input id="knownMileage" inputmode="decimal" placeholder="Optional, e.g. 739.081" />
+            </label>
+            <label>
+              Note
+              <input id="sampleNote" placeholder="Optional field note" />
+            </label>
+            <div class="collector-actions">
+              <button id="saveSampleBtn" type="button">Save Sample</button>
+              <button id="exportCsvBtn" type="button">Export CSV</button>
+              <button id="exportJsonBtn" type="button">Export JSON</button>
+              <button id="clearSamplesBtn" type="button">Clear</button>
+            </div>
+          </section>
+
+          <div class="notes">
+            <strong>Rule</strong>
+            <p>Facing toward Beijing, left is Up side and right is Down side.</p>
+          </div>
+        </aside>
+      </section>
+
+      <section class="records-panel">
+        <div class="records-header">
+          <h2>Saved Samples</h2>
+          <span id="sampleCount">0 records</span>
+        </div>
+        <div class="records-table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Time</th>
+                <th>Track Input</th>
+                <th>Type</th>
+                <th>Known</th>
+                <th>Calculated</th>
+                <th>Track</th>
+                <th>Side</th>
+                <th>Offset</th>
+                <th>Accuracy</th>
+                <th>Coordinates</th>
+                <th>Note</th>
+              </tr>
+            </thead>
+            <tbody id="samplesBody">
+              <tr>
+                <td colspan="12" class="empty-row">No saved samples.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <script src="./track-data.js?v=20260519g"></script>
+    <script src="./app.js?v=20260519g"></script>
+  </body>
+</html>
