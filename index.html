@@ -2,225 +2,245 @@
 <html lang="zh-CN">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#0b6057" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>铁路里程定位测试</title>
     <link rel="stylesheet" href="./styles.css" />
   </head>
   <body>
     <main class="app-shell">
-      <header class="app-header">
+      <section class="toolbar">
         <div>
-          <p class="eyebrow">拼接参考轨迹 · 极简验证版</p>
           <h1>铁路里程定位测试</h1>
+          <p>实时 GPS 里程、上下行参考轨迹、现场校验与实体采集。</p>
         </div>
-        <div id="gpsStatus" class="gps-status" data-state="idle" aria-live="polite">
-          <i></i><span id="gpsStatusText">未开始定位</span>
-        </div>
-      </header>
-
-      <section class="mileage-card" aria-label="当前实时定位结果">
-        <div class="card-label">当前铁路里程</div>
-        <strong id="mileageValue" class="mileage-value">--</strong>
-        <div class="route-row">
-          <span id="trackValue" class="route-chip">等待定位</span>
-          <span id="sideValue" class="side-chip">--</span>
-        </div>
-        <p id="confidenceValue" class="confidence-note">开始定位后显示匹配情况</p>
-
-        <div class="hero-divider"></div>
-        <div class="metric-grid" aria-label="实时定位信息">
-          <div>
-            <span>GPS 纬度</span>
-            <strong id="latValue">--</strong>
-          </div>
-          <div>
-            <span>GPS 经度</span>
-            <strong id="lonValue">--</strong>
-          </div>
-          <div>
-            <span>离参考轨迹</span>
-            <strong id="offsetValue">--</strong>
-          </div>
-          <div>
-            <span>GPS 精度</span>
-            <strong id="accuracyValue">--</strong>
-          </div>
-          <div>
-            <span>更新时间</span>
-            <strong id="timeValue">--</strong>
-          </div>
-          <div>
-            <span>参考分段</span>
-            <strong id="segmentValue">--</strong>
-          </div>
+        <div class="actions">
+          <button id="startGpsBtn" type="button">开始定位</button>
+          <button id="stopGpsBtn" type="button" disabled>停止定位</button>
         </div>
       </section>
 
-      <section class="primary-actions" aria-label="定位操作">
-        <button id="gpsToggleBtn" class="gps-toggle" type="button">
-          <span class="button-icon" aria-hidden="true">◎</span>
-          <span id="gpsToggleText">开始定位</span>
-        </button>
-        <p class="https-note">手机定位需通过 GitHub Pages 或其他 HTTPS 地址打开。</p>
+      <section class="notice" id="gpsStatus">尚未开始定位</section>
+
+      <section class="status-grid">
+        <article>
+          <span>GPS纬度</span>
+          <strong id="latValue">--</strong>
+        </article>
+        <article>
+          <span>GPS经度</span>
+          <strong id="lonValue">--</strong>
+        </article>
+        <article>
+          <span>GPS精度</span>
+          <strong id="accuracyValue">--</strong>
+        </article>
+        <article>
+          <span>最后更新时间</span>
+          <strong id="timeValue">--</strong>
+        </article>
       </section>
 
-      <section class="panel calibration-panel" aria-label="现场里程校验">
-        <div class="panel-heading">
-          <div>
-            <p class="section-kicker">现场校验</p>
-            <h2>核对当前位置是否准确</h2>
-          </div>
-          <span id="sampleCount" class="record-count">0 条</span>
-        </div>
-        <p class="panel-note">经过已知公里标、网门、桥涵或明确设备点时，填写实际里程。系统会保存 GPS、自动里程、行别、偏移量和误差。</p>
-
-        <div class="calibration-preview" aria-live="polite">
-          <div>
-            <span>软件结果</span>
-            <strong id="calibrationComputed">等待定位</strong>
-          </div>
-          <div>
-            <span>校验误差</span>
-            <strong id="calibrationError">填写实际里程后计算</strong>
-          </div>
+      <section class="workspace">
+        <div class="map-panel">
+          <canvas id="lineCanvas" width="1200" height="760"></canvas>
         </div>
 
-        <form id="calibrationForm" class="calibration-form">
-          <div class="two-columns">
+        <aside class="result-panel">
+          <h2>当前定位结果</h2>
+          <dl>
+            <div>
+              <dt>当前铁路里程</dt>
+              <dd id="mileageValue">--</dd>
+            </div>
+            <div>
+              <dt>匹配的上行/下行参考轨迹</dt>
+              <dd id="trackValue">--</dd>
+            </div>
+            <div>
+              <dt>线路侧别</dt>
+              <dd id="sideValue">--</dd>
+            </div>
+            <div>
+              <dt>偏离参考轨迹距离</dt>
+              <dd id="offsetValue">--</dd>
+            </div>
+            <div>
+              <dt>最近投影点</dt>
+              <dd id="projectionValue">--</dd>
+            </div>
+            <div>
+              <dt>参考分段</dt>
+              <dd id="segmentValue">--</dd>
+            </div>
+          </dl>
+          <div id="rangeWarning" class="range-warning" hidden></div>
+
+          <form id="manualForm" class="manual-form">
+            <h2>手动坐标测试</h2>
             <label>
-              实际行别
-              <select id="actualTrack">
-                <option value="auto">自动使用当前匹配</option>
-                <option value="up">上行</option>
-                <option value="down">下行</option>
+              纬度
+              <input id="manualLat" name="lat" inputmode="decimal" value="42.08386554" />
+            </label>
+            <label>
+              经度
+              <input id="manualLon" name="lon" inputmode="decimal" value="123.53301922" />
+            </label>
+            <button type="submit">计算</button>
+          </form>
+
+          <section class="target-finder">
+            <h2>目标查找</h2>
+            <label>
+              目标名称
+              <input id="targetName" value="网门" />
+            </label>
+            <label>
+              目标里程
+              <input id="targetMileage" inputmode="decimal" value="727.300" />
+            </label>
+            <label>
+              目标侧别
+              <select id="targetSide">
+                <option value="up">上行侧</option>
+                <option value="down">下行侧</option>
+                <option value="any">任意侧</option>
               </select>
             </label>
-            <label>
-              实际里程
-              <input id="actualMileage" autocomplete="off" inputmode="text" placeholder="769.703 或 K769+703" />
-            </label>
-          </div>
-          <label>
-            备注（可选）
-            <input id="calibrationNote" autocomplete="off" placeholder="例如：网门、桥涵、公里标或现场情况" />
-          </label>
-          <button id="saveCalibrationBtn" class="secondary-action" type="submit">保存校验点</button>
-        </form>
-      </section>
+            <button id="setTargetBtn" type="button">设置目标</button>
 
-      <details class="details-panel records-details">
-        <summary>已保存校验记录 <span id="recordSummary">0 条</span></summary>
-        <div id="samplesList" class="samples-list">
-          <p class="empty-records">暂无校验记录。</p>
-        </div>
-      </details>
-
-      <details id="advancedDetails" class="details-panel">
-        <summary>测试、数据与更多功能</summary>
-        <div class="details-content">
-          <section class="subsection">
-            <h2>手动坐标测试</h2>
-            <p>用于室内核对模型。手动测试不会启动手机 GPS。</p>
-            <form id="manualForm" class="manual-form">
-              <label>
-                纬度
-                <input id="manualLat" name="lat" inputmode="decimal" value="42.28869111" />
-              </label>
-              <label>
-                经度
-                <input id="manualLon" name="lon" inputmode="decimal" value="123.82939988" />
-              </label>
-              <button type="submit" class="secondary-action">按输入坐标测试</button>
-            </form>
-          </section>
-
-          <section class="subsection">
-            <h2>目标查找（后续功能）</h2>
-            <p>当前先以定位准确性验证为主；此处可预先测试指定网门或设备点的距离提示。</p>
-            <div class="target-readout" aria-live="polite">
-              <div class="target-main">
+            <div class="target-readout">
+              <div>
                 <span>目标</span>
                 <strong id="targetSummary">--</strong>
               </div>
-              <div class="target-metrics">
-                <div>
-                  <span>沿线距离</span>
-                  <strong id="targetDelta">--</strong>
-                </div>
-                <div>
-                  <span>行进提示</span>
-                  <strong id="targetMove">--</strong>
-                </div>
-                <div class="full-width">
-                  <span>侧别提示</span>
-                  <strong id="targetSideHint">--</strong>
-                </div>
+              <div>
+                <span>里程差</span>
+                <strong id="targetDelta">--</strong>
+              </div>
+              <div>
+                <span>移动方向</span>
+                <strong id="targetMove">--</strong>
+              </div>
+              <div>
+                <span>侧别提示</span>
+                <strong id="targetSideHint">--</strong>
               </div>
             </div>
-            <form id="targetForm" class="target-form">
-              <label>
-                目标名称
-                <input id="targetName" autocomplete="off" value="网门" placeholder="例如：网门、桥涵、设备点" />
-              </label>
-              <div class="two-columns">
-                <label>
-                  所在线路
-                  <select id="targetTrack">
-                    <option value="up">上行</option>
-                    <option value="down">下行</option>
-                  </select>
-                </label>
-                <label>
-                  目标位置
-                  <select id="targetSide">
-                    <option value="any">不限侧别</option>
-                    <option value="up">上行侧</option>
-                    <option value="down">下行侧</option>
-                  </select>
-                </label>
-              </div>
-              <label>
-                目标里程（公里小数）
-                <input id="targetMileage" inputmode="decimal" value="727.300" placeholder="例如：727.300" />
-              </label>
-              <button class="secondary-action" type="submit">保存目标</button>
-            </form>
           </section>
 
-          <details id="mapDetails" class="map-details">
-            <summary>查看参考轨迹示意图</summary>
-            <div class="map-panel">
-              <canvas id="lineCanvas" width="840" height="420"></canvas>
-            </div>
-            <p class="map-note">图中仅显示参考轨迹、既有控制点与当前投影位置，不是在线地图。</p>
-          </details>
+          <div class="notes">
+            <strong>侧别规则</strong>
+            <p>面向北京方向，左侧为上行侧，右侧为下行侧。</p>
+          </div>
+        </aside>
+      </section>
 
-          <section class="subsection export-section">
-            <h2>导出与清理</h2>
-            <div class="export-actions">
-              <button id="exportCsvBtn" type="button" class="outline-action">导出 CSV</button>
-              <button id="exportJsonBtn" type="button" class="outline-action">导出 JSON</button>
-              <button id="clearSamplesBtn" type="button" class="danger-action">清空记录</button>
-            </div>
-          </section>
+      <section class="field-card">
+        <h2>现场里程校验</h2>
+        <div id="calibrationQuality" class="quality muted">请先开始定位并等待定位成功</div>
+        <div id="calibrationFeedback" class="save-feedback" hidden></div>
+        <div class="form-grid">
+          <label>
+            实际行别
+            <select id="calibrationDirection">
+              <option value="auto">默认使用模型当前判断</option>
+              <option value="up">上行</option>
+              <option value="down">下行</option>
+            </select>
+          </label>
+          <label>
+            实际里程
+            <input id="calibrationMileage" inputmode="decimal" placeholder="751.780 或 K751+780" />
+          </label>
+          <label class="wide">
+            备注
+            <input id="calibrationNote" placeholder="公里标、网门、桥梁铭牌、现场确认点" />
+          </label>
         </div>
-      </details>
+        <button id="saveCalibrationBtn" type="button">保存当前校验点</button>
+        <details class="records-detail">
+          <summary>最近现场校验记录 <span id="calibrationCount">0</span></summary>
+          <div id="calibrationList" class="record-list"></div>
+          <button id="clearCalibrationsBtn" class="secondary danger" type="button">清空全部校验记录</button>
+        </details>
+      </section>
 
-      <details class="details-panel rule-details">
-        <summary>模型与使用规则</summary>
-        <div class="details-content rules-content">
-          <p><strong>当前用途：</strong>先验证“GPS → 铁路里程、行别、侧别、偏移量”是否可靠，暂不把它当成正式问题采集或添乘统计工具。</p>
-          <p><strong>线路范围：</strong>下行 K703.932—K888.077；上行 K769.703—K703.475。</p>
-          <p><strong>定位规则：</strong>上下行独立匹配；轨迹拼接只依据空间位置、轨迹顺序和局部走向，不使用速度、时间或运行时长。</p>
-          <p><strong>提醒：</strong>普通手机 GPS 会受遮挡、站场、树木和手机位置影响。请同时观察 GPS 精度、离参考轨迹距离和现场实际线路。</p>
+      <section class="field-card">
+        <h2>现场实体标注</h2>
+        <div id="entityQuality" class="quality muted">请先开始定位并等待定位成功</div>
+        <div id="entityFeedback" class="save-feedback" hidden></div>
+        <div class="form-grid">
+          <label>
+            实体类别
+            <select id="entityCategory">
+              <option value="网门">网门</option>
+              <option value="桥梁">桥梁</option>
+              <option value="河流">河流</option>
+              <option value="道路">道路</option>
+              <option value="道口">道口</option>
+              <option value="信号机">信号机</option>
+              <option value="封闭网">封闭网</option>
+              <option value="摄像头">摄像头</option>
+              <option value="设备">设备</option>
+              <option value="其他">其他</option>
+            </select>
+          </label>
+          <label>
+            实体名称
+            <input id="entityName" placeholder="乱石山站北侧网门" />
+          </label>
+          <label>
+            实际行别
+            <select id="entityDirection">
+              <option value="auto">默认使用模型当前判断</option>
+              <option value="up">上行</option>
+              <option value="down">下行</option>
+              <option value="unknown">不确定</option>
+            </select>
+          </label>
+          <label>
+            实际里程
+            <input id="entityMileage" inputmode="decimal" placeholder="可选，未填则只保存模型里程" />
+          </label>
+          <label>
+            侧别
+            <select id="entitySide">
+              <option value="">不确定</option>
+              <option value="left">左侧</option>
+              <option value="right">右侧</option>
+              <option value="on_line">线上</option>
+              <option value="between_lines">线间</option>
+            </select>
+          </label>
+          <label class="wide">
+            备注
+            <input id="entityNote" placeholder="可选" />
+          </label>
         </div>
-      </details>
+        <button id="saveEntityBtn" type="button">保存当前实体点</button>
+        <details class="records-detail">
+          <summary>最近实体记录 <span id="entityCount">0</span></summary>
+          <div id="entityList" class="record-list"></div>
+          <button id="clearEntitiesBtn" class="secondary danger" type="button">清空全部实体记录</button>
+        </details>
+      </section>
+
+      <section class="field-card">
+        <h2>数据管理与导出</h2>
+        <p class="storage-warning">
+          数据仅保存在当前手机浏览器。更换手机、清除浏览器数据或卸载浏览器前，请先导出备份。
+          GitHub Pages 不会自动保存或同步你的现场记录。
+        </p>
+        <div class="export-actions">
+          <button id="exportCalibrationCsvBtn" type="button">导出现场校验点 CSV</button>
+          <button id="exportEntityCsvBtn" type="button">导出实体点 CSV</button>
+          <button id="exportBackupJsonBtn" type="button">导出全部数据 JSON 备份</button>
+        </div>
+      </section>
     </main>
 
-    <div id="toast" class="toast" role="status" aria-live="polite"></div>
-
-    <script src="./track-data-v2.js?v=20260625-minimal1"></script>
-    <script src="./app.js?v=20260625-minimal1"></script>
+    <script src="./track-data-v2.js?v=20260521a"></script>
+    <script src="./data-schema.js?v=20260628c"></script>
+    <script src="./app.js?v=20260628c"></script>
   </body>
 </html>
