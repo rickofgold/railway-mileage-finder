@@ -17,15 +17,12 @@ const els = {
   mileage: document.querySelector("#mileageValue"),
   track: document.querySelector("#trackValue"),
   side: document.querySelector("#sideValue"),
+  offsetLabel: document.querySelector("#offsetLabel"),
   offset: document.querySelector("#offsetValue"),
-  projection: document.querySelector("#projectionValue"),
   segment: document.querySelector("#segmentValue"),
   rangeWarning: document.querySelector("#rangeWarning"),
   startGps: document.querySelector("#startGpsBtn"),
   stopGps: document.querySelector("#stopGpsBtn"),
-  form: document.querySelector("#manualForm"),
-  manualLat: document.querySelector("#manualLat"),
-  manualLon: document.querySelector("#manualLon"),
   targetName: document.querySelector("#targetName"),
   targetMileage: document.querySelector("#targetMileage"),
   targetSide: document.querySelector("#targetSide"),
@@ -64,7 +61,7 @@ let gpsWatchId = null;
 let currentResult = null;
 let lastLiveGpsResult = null;
 let lastGpsCoords = null;
-let currentTarget = { name: "网门", mileageKm: 727.3, side: "up" };
+let currentTarget = null;
 let calibrations = loadRecords(schema.storageKeys.mileageCalibrations);
 let entities = loadRecords(schema.storageKeys.fieldEntities);
 let calibrationFeedbackTimer = null;
@@ -223,9 +220,9 @@ function calculate(lat, lon, accuracy = null, timestamp = Date.now(), coords = n
   return { lat, lon, accuracy, timestamp, projection, mileage, side, coords, range };
 }
 
-function updateReadout(result, source = "manual") {
+function updateReadout(result) {
   currentResult = result;
-  if (source === "gps") lastLiveGpsResult = result;
+  lastLiveGpsResult = result;
   els.lat.textContent = result.lat.toFixed(8);
   els.lon.textContent = result.lon.toFixed(8);
   els.accuracy.textContent = result.accuracy == null ? "--" : `${result.accuracy.toFixed(1)} m`;
@@ -234,8 +231,9 @@ function updateReadout(result, source = "manual") {
   els.track.textContent = tracks[result.projection.trackName].label;
   els.side.textContent = result.side;
   els.side.className = result.side === "上行侧" ? "side-up" : result.side === "下行侧" ? "side-down" : "";
-  els.offset.textContent = formatDistance(result.projection.signedOffsetM, true);
-  els.projection.textContent = `${result.projection.projection.lat.toFixed(8)}, ${result.projection.projection.lon.toFixed(8)}`;
+  els.offsetLabel.textContent =
+    result.projection.trackName === "up" ? "偏离上行轨道中心距离" : "偏离下行轨道中心距离";
+  els.offset.textContent = formatDistance(result.projection.distanceM);
   if (result.mileage) {
     const extrapolated = result.mileage.segment.extrapolated ? "（外推）" : "";
     els.segment.textContent = `${result.mileage.segment.a.name} 到 ${result.mileage.segment.b.name}${extrapolated}`;
@@ -335,8 +333,11 @@ function gpsSnapshot(result) {
   };
 }
 
-function selectedDirection(value, result) {
-  if (value === "auto") return modelDirectionFromResult(result);
+function selectedDirection(value, result, fallback = "unknown") {
+  if (value === "auto") {
+    const direction = modelDirectionFromResult(result);
+    return direction === "up" || direction === "down" ? direction : fallback;
+  }
   return value;
 }
 
@@ -350,7 +351,11 @@ function saveCalibration() {
   }
   const result = fresh.result;
   const model = modelSnapshot(result);
-  const actualDirection = selectedDirection(els.calibrationDirection.value, result);
+  const actualDirection = selectedDirection(els.calibrationDirection.value, result, "unknown");
+  if (els.calibrationDirection.value === "auto" && actualDirection === "unknown") {
+    alert("当前行别未识别，请手动选择实际行别。");
+    return;
+  }
   const record = {
     record_id: `CAL-${Date.now()}`,
     record_type: schema.recordTypes.mileageCalibration,
@@ -400,7 +405,7 @@ function saveEntity() {
     captured_at: new Date(result.timestamp).toISOString(),
     entity_category: els.entityCategory.value,
     entity_name: entityName,
-    actual_direction: selectedDirection(els.entityDirection.value, result),
+    actual_direction: selectedDirection(els.entityDirection.value, result, "unknown"),
     actual_mileage_km: actualMileage,
     side: els.entitySide.value || "unknown",
     note: els.entityNote.value.trim(),
@@ -590,9 +595,15 @@ function timestampForFile() {
 
 function setTarget() {
   const mileageKm = parseMileage(els.targetMileage.value);
+  if (!Number.isFinite(mileageKm)) {
+    currentTarget = null;
+    updateTargetGuidance();
+    alert("请输入有效的目标里程，例如 727.300 或 K727+300。");
+    return;
+  }
   currentTarget = {
     name: els.targetName.value.trim() || "目标",
-    mileageKm: Number.isFinite(mileageKm) ? mileageKm : null,
+    mileageKm,
     side: els.targetSide.value,
   };
   updateTargetGuidance();
@@ -688,58 +699,54 @@ function draw() {
   });
   if (currentResult) {
     const gps = screen(toXY(currentResult.lat, currentResult.lon));
-    const proj = screen(toXY(currentResult.projection.projection.lat, currentResult.projection.projection.lon));
-    ctx.strokeStyle = "#b43b45";
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.moveTo(gps.x, gps.y);
-    ctx.lineTo(proj.x, proj.y);
-    ctx.stroke();
     ctx.fillStyle = "#b43b45";
     ctx.beginPath();
     ctx.arc(gps.x, gps.y, 6, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.fillStyle = "#126c64";
-    ctx.beginPath();
-    ctx.arc(proj.x, proj.y, 5, 0, Math.PI * 2);
     ctx.fill();
   }
 }
 
 function startGps() {
   if (!navigator.geolocation) {
-    setGpsStatus("定位失败：定位不可用", "bad");
+    setGpsStatus("当前浏览器不支持定位功能，请使用支持定位权限的浏览器打开 HTTPS 页面。", "bad");
+    stopGps(false);
     return;
   }
   if (location.protocol !== "https:" && location.hostname !== "localhost" && location.hostname !== "127.0.0.1") {
-    setGpsStatus("当前页面不是HTTPS，无法可靠使用定位", "warn");
-  } else {
-    setGpsStatus("正在请求定位权限", "muted");
+    setGpsStatus("当前页面不是 HTTPS，无法可靠使用定位。请通过 GitHub Pages 页面打开。", "bad");
+    stopGps(false);
+    return;
   }
   if (gpsWatchId != null) stopGps(false);
-  setGpsStatus("正在获取GPS", "muted");
-  gpsWatchId = navigator.geolocation.watchPosition(
-    (position) => {
-      lastGpsCoords = position.coords;
-      updateReadout(
-        calculate(position.coords.latitude, position.coords.longitude, position.coords.accuracy, position.timestamp, position.coords),
-        "gps",
-      );
-      setGpsStatus("定位成功", "good");
-    },
-    (error) => {
-      const messages = {
-        1: "定位失败：权限被拒绝",
-        2: "定位失败：定位不可用",
-        3: "定位失败：定位超时",
-      };
-      setGpsStatus(messages[error.code] || `定位失败：${error.message}`, "bad");
-      stopGps(false);
-    },
-    { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 },
-  );
+  setGpsStatus("正在请求定位权限并获取 GPS 位置…", "muted");
   els.startGps.disabled = true;
   els.stopGps.disabled = false;
+  try {
+    gpsWatchId = navigator.geolocation.watchPosition(
+      (position) => {
+        lastGpsCoords = position.coords;
+        updateReadout(
+          calculate(position.coords.latitude, position.coords.longitude, position.coords.accuracy, position.timestamp, position.coords),
+        );
+        setGpsStatus("定位成功", "good");
+      },
+      (error) => {
+        setGpsStatus(gpsErrorMessage(error), "bad");
+        stopGps(false);
+      },
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 15000 },
+    );
+  } catch {
+    setGpsStatus("未检测到可用定位服务。请先开启手机“定位/GPS”后，再点击“开始定位”。", "bad");
+    stopGps(false);
+  }
+}
+
+function gpsErrorMessage(error) {
+  if (error?.code === 1) return "未获得定位权限。请在浏览器的网站权限中允许“位置”后重试。";
+  if (error?.code === 2) return "未检测到可用定位服务。请先开启手机“定位/GPS”后，再点击“开始定位”。";
+  if (error?.code === 3) return "定位超时。请确认手机定位/GPS已开启，并尽量到开阔位置后重试。";
+  return error?.message ? `定位失败：${error.message}` : "定位失败。请确认手机定位/GPS已开启，并允许浏览器访问位置。";
 }
 
 function stopGps(updateStatus = true) {
@@ -780,16 +787,9 @@ els.entityList.addEventListener("click", (event) => {
   const id = event.target?.dataset?.deleteEntity;
   if (id) deleteEntity(id);
 });
-els.form.addEventListener("submit", (event) => {
-  event.preventDefault();
-  const lat = Number.parseFloat(els.manualLat.value);
-  const lon = Number.parseFloat(els.manualLon.value);
-  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return;
-  updateReadout(calculate(lat, lon), "manual");
-});
 window.addEventListener("resize", draw);
 
-setTarget();
-updateReadout(calculate(Number.parseFloat(els.manualLat.value), Number.parseFloat(els.manualLon.value)), "manual");
+updateTargetGuidance();
 renderCalibrations();
 renderEntities();
+draw();

@@ -257,14 +257,12 @@ dd {
   margin: 4px 0 0;
 }
 
-.manual-form,
 .target-finder,
 .form-grid {
   display: grid;
   gap: 10px;
 }
 
-.manual-form,
 .target-finder {
   border-top: 1px solid var(--line);
   margin-top: 20px;

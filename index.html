@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>铁路里程定位测试</title>
-    <link rel="stylesheet" href="./styles.css" />
+    <link rel="stylesheet" href="./styles.css?v=20260628d" />
   </head>
   <body>
     <main class="app-shell">
@@ -61,12 +61,8 @@
               <dd id="sideValue">--</dd>
             </div>
             <div>
-              <dt>偏离参考轨迹距离</dt>
+              <dt id="offsetLabel">偏离当前识别轨道中心距离</dt>
               <dd id="offsetValue">--</dd>
-            </div>
-            <div>
-              <dt>最近投影点</dt>
-              <dd id="projectionValue">--</dd>
             </div>
             <div>
               <dt>参考分段</dt>
@@ -74,19 +70,6 @@
             </div>
           </dl>
           <div id="rangeWarning" class="range-warning" hidden></div>
-
-          <form id="manualForm" class="manual-form">
-            <h2>手动坐标测试</h2>
-            <label>
-              纬度
-              <input id="manualLat" name="lat" inputmode="decimal" value="42.08386554" />
-            </label>
-            <label>
-              经度
-              <input id="manualLon" name="lon" inputmode="decimal" value="123.53301922" />
-            </label>
-            <button type="submit">计算</button>
-          </form>
 
           <section class="target-finder">
             <h2>目标查找</h2>
@@ -96,7 +79,7 @@
             </label>
             <label>
               目标里程
-              <input id="targetMileage" inputmode="decimal" value="727.300" />
+              <input id="targetMileage" inputmode="decimal" placeholder="727.300 或 K727+300" />
             </label>
             <label>
               目标侧别
@@ -143,7 +126,7 @@
           <label>
             实际行别
             <select id="calibrationDirection">
-              <option value="auto">默认使用模型当前判断</option>
+              <option value="auto">默认使用当前行别判断</option>
               <option value="up">上行</option>
               <option value="down">下行</option>
             </select>
@@ -192,7 +175,7 @@
           <label>
             实际行别
             <select id="entityDirection">
-              <option value="auto">默认使用模型当前判断</option>
+              <option value="auto">默认使用当前行别判断</option>
               <option value="up">上行</option>
               <option value="down">下行</option>
               <option value="unknown">不确定</option>
@@ -241,6 +224,6 @@
 
     <script src="./track-data-v2.js?v=20260521a"></script>
     <script src="./data-schema.js?v=20260628c"></script>
-    <script src="./app.js?v=20260628c"></script>
+    <script src="./app.js?v=20260628d"></script>
   </body>
 </html>
